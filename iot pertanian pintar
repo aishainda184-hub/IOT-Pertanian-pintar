@@ -6,83 +6,84 @@
 #include <BlynkSimpleEsp8266.h>
 #include <DHT.h>
 
-char ssid[] = "NamaWifi";
-char pass[] = "PasswordWifi";
+char ssid[] = "WiFi";
+char pass[] = "Password";
 
 #define SOIL_PIN A0
+#define DHT_PIN D4
+#define BUZZER_PIN D1
+#define RELAY_PIN D2
+#define LED_MERAH D5
+#define LED_HIJAU D6
 
-#define DHTPIN D4
 #define DHTTYPE DHT22
+DHT dht(DHT_PIN, DHTTYPE);
 
-#define RELAY_PIN D1
-#define LED_HIJAU D5
-#define LED_MERAH D6
-#define BUZZER D7
+int batasKering = 600;
+float batasPanas = 31.0;
 
-DHT dht(DHTPIN, DHTTYPE);
 BlynkTimer timer;
 
-void kirimData()
-{
-  int soilValue = analogRead(SOIL_PIN);
-
+void prosesSistemIoT() {
+  int nilaiTanah = analogRead(SOIL_PIN);
   float suhu = dht.readTemperature();
-  float humidity = dht.readHumidity();
 
-  Blynk.virtualWrite(V0, soilValue);
-  Blynk.virtualWrite(V1, suhu);
-  Blynk.virtualWrite(V2, humidity);
+  if (isnan(suhu)) {
+    Serial.println("Gagal membaca DHT!");
+    return;
+  }
 
-  if (soilValue > 700)
-  {
-    digitalWrite(RELAY_PIN, LOW); // Relay ON
+  bool kondisiKering = (nilaiTanah > batasKering);
+  bool kondisiPanas = (suhu >= batasPanas);
+  int statusPompa = 0;
+
+  if (kondisiKering) {
     digitalWrite(LED_MERAH, HIGH);
     digitalWrite(LED_HIJAU, LOW);
-    digitalWrite(BUZZER, HIGH);
-
-    Blynk.virtualWrite(V3, "POMPA MENYALA");
-  }
-
-  else
-  {
-    digitalWrite(RELAY_PIN, HIGH); // Relay OFF
+    digitalWrite(RELAY_PIN, LOW);
+    statusPompa = 1;
+  } else {
     digitalWrite(LED_MERAH, LOW);
     digitalWrite(LED_HIJAU, HIGH);
-    digitalWrite(BUZZER, LOW);
-
-    Blynk.virtualWrite(V3, "POMPA MATI");
+    digitalWrite(RELAY_PIN, HIGH);
+    statusPompa = 0;
   }
 
-  if (suhu > 35)
-  {
-    digitalWrite(BUZZER, HIGH);
+  if (kondisiKering || kondisiPanas) {
+    digitalWrite(BUZZER_PIN, LOW);
+  } else {
+    digitalWrite(BUZZER_PIN, HIGH);
   }
 
-  Serial.println("===== PERTANIAN PINTAR =====");
-  Serial.print("Soil : ");
-  Serial.println(soilValue);
-  Serial.print("Suhu : ");
-  Serial.println(suhu);
-  Serial.print("Humidity : ");
-  Serial.println(humidity);
+  Serial.print("Suhu: "); Serial.print(suhu);
+  Serial.print(" C | Tanah: "); Serial.print(nilaiTanah);
+  Serial.print(" | Pompa: "); Serial.println(statusPompa ? "NYALA" : "MATI");
+
+  Blynk.virtualWrite(V0, nilaiTanah);
+  Blynk.virtualWrite(V1, suhu);
+  Blynk.virtualWrite(V2, statusPompa);
 }
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
-  pinMode(RELAY_PIN, OUTPUT);
-  pinMode(LED_HIJAU, OUTPUT);
-  pinMode(LED_MERAH, OUTPUT);
-  pinMode(BUZZER, OUTPUT);
-
-  digitalWrite(RELAY_PIN, HIGH);
   dht.begin();
+  
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(LED_MERAH, OUTPUT);
+  pinMode(LED_HIJAU, OUTPUT);
+  
+  digitalWrite(BUZZER_PIN, HIGH);
+  digitalWrite(RELAY_PIN, HIGH);
+  digitalWrite(LED_MERAH, LOW);
+  digitalWrite(LED_HIJAU, LOW);
+  
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
-  timer.setInterval(2000L, kirimData);
+
+  timer.setInterval(1000L, prosesSistemIoT);
 }
 
-void loop()
-{
+void loop() {
   Blynk.run();
   timer.run();
 }
