@@ -1,0 +1,83 @@
+#include <DHT.h>
+
+#define SOIL_PIN A0
+#define DHT_PIN 2
+#define RELAY_PIN 3
+#define BUZZER_PIN 4
+#define LED_MERAH 5
+#define LED_HIJAU 6
+
+#define DHTTYPE DHT22
+
+DHT dht(DHT_PIN, DHTTYPE);
+
+int batasKering = 600;
+float batasPanas = 31.0;
+
+void setup() {
+
+  Serial.begin(9600);
+
+  dht.begin();
+
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(LED_MERAH, OUTPUT);
+  pinMode(LED_HIJAU, OUTPUT);
+
+  digitalWrite(RELAY_PIN, HIGH);
+  digitalWrite(BUZZER_PIN, HIGH);
+}
+
+void loop() {
+
+  int nilaiTanah = analogRead(SOIL_PIN);
+
+  float suhu = dht.readTemperature();
+
+  if (isnan(suhu)) {
+    Serial.println("Sensor DHT22 Error");
+    return;
+  }
+
+  bool kondisiKering = (nilaiTanah > batasKering);
+  bool kondisiPanas = (suhu >= batasPanas);
+
+  if (kondisiKering) {
+
+    digitalWrite(RELAY_PIN, LOW);
+    digitalWrite(LED_MERAH, HIGH);
+    digitalWrite(LED_HIJAU, LOW);
+
+  } else {
+
+    digitalWrite(RELAY_PIN, HIGH);
+    digitalWrite(LED_MERAH, LOW);
+    digitalWrite(LED_HIJAU, HIGH);
+  }
+
+  if (kondisiKering || kondisiPanas) {
+
+    digitalWrite(BUZZER_PIN, LOW);
+
+  } else {
+
+    digitalWrite(BUZZER_PIN, HIGH);
+  }
+
+  Serial.print("Kelembaban Tanah : ");
+  Serial.println(nilaiTanah);
+
+  Serial.print("Suhu : ");
+  Serial.print(suhu);
+  Serial.println(" C");
+
+  if (kondisiKering)
+    Serial.println("Status : TANAH KERING - POMPA ON");
+  else
+    Serial.println("Status : TANAH LEMBAB - POMPA OFF");
+
+  Serial.println("------------------------");
+
+  delay(1000);
+}
