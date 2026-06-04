@@ -5,8 +5,6 @@
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
 #include <DHT.h>
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
 
 char ssid[] = "WiFi";
 char pass[] = "Password";
@@ -14,12 +12,12 @@ char pass[] = "Password";
 #define DHTPIN D4
 #define DHTTYPE DHT11
 
-#define LED D5
+#define TRIG_PIN D5
+#define ECHO_PIN D6
 
-float batasSuhu = 30;
+#define LED_PIN D7
 
 DHT dht(DHTPIN, DHTTYPE);
-LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 BlynkTimer timer;
 
@@ -28,47 +26,45 @@ void monitoring() {
   float suhu = dht.readTemperature();
   float hum = dht.readHumidity();
 
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+
+  digitalWrite(TRIG_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH);
+  float jarak = duration * 0.034 / 2;
+
   Blynk.virtualWrite(V0, suhu);
   Blynk.virtualWrite(V1, hum);
+  Blynk.virtualWrite(V2, jarak);
 
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("S:");
-  lcd.print(suhu);
-  lcd.print("C");
-
-  lcd.setCursor(8, 0);
-  lcd.print("H:");
-  lcd.print(hum);
-  lcd.print("%");
-
-  if (suhu > batasSuhu) {
-
-    digitalWrite(LED, HIGH);
-
-    lcd.setCursor(0, 1);
-    lcd.print("SUHU TINGGI!");
-
+  if (suhu > 30) {
+    digitalWrite(LED_PIN, HIGH);
     Blynk.logEvent("suhu_tinggi",
-                   "Suhu Kandang Tinggi");
+                   "Suhu kandang terlalu tinggi");
   }
   else {
+    digitalWrite(LED_PIN, LOW);
+  }
 
-    digitalWrite(LED, LOW);
-
-    lcd.setCursor(0, 1);
-    lcd.print("Kondisi Aman");
+  if (jarak > 15) {
+    Blynk.logEvent("pakan_habis",
+                   "Pakan hampir habis");
   }
 }
 
 void setup() {
+  Serial.begin(115200);
 
-  pinMode(LED, OUTPUT);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  pinMode(LED_PIN, OUTPUT);
 
   dht.begin();
-
-  lcd.init();
-  lcd.backlight();
 
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
 
