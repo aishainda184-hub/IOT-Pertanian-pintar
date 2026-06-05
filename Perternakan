@@ -5,6 +5,7 @@
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
 #include <DHT.h>
+#include <Servo.h>
 
 char ssid[] = "WiFi";
 char pass[] = "Password";
@@ -16,8 +17,10 @@ char pass[] = "Password";
 #define ECHO_PIN D6
 
 #define LED_PIN D7
+#define SERVO_PIN D1
 
 DHT dht(DHTPIN, DHTTYPE);
+Servo servoPakan;
 
 BlynkTimer timer;
 
@@ -41,22 +44,44 @@ void monitoring() {
   Blynk.virtualWrite(V1, hum);
   Blynk.virtualWrite(V2, jarak);
 
+  Serial.print("Suhu : ");
+  Serial.print(suhu);
+  Serial.print(" C | Kelembapan : ");
+  Serial.print(hum);
+  Serial.print(" % | Jarak : ");
+  Serial.print(jarak);
+  Serial.println(" cm");
+
+  // LED menyala jika suhu tinggi
   if (suhu > 30) {
     digitalWrite(LED_PIN, HIGH);
-    Blynk.logEvent("suhu_tinggi",
-                   "Suhu kandang terlalu tinggi");
-  }
-  else {
+
+    Blynk.logEvent(
+      "suhu_tinggi",
+      "Suhu kandang terlalu tinggi"
+    );
+  } else {
     digitalWrite(LED_PIN, LOW);
   }
 
+  // Servo bergerak jika pakan hampir habis
   if (jarak > 15) {
-    Blynk.logEvent("pakan_habis",
-                   "Pakan hampir habis");
+
+    servoPakan.write(90);
+
+    Blynk.logEvent(
+      "pakan_habis",
+      "Pakan hampir habis"
+    );
+
+  } else {
+
+    servoPakan.write(0);
   }
 }
 
 void setup() {
+
   Serial.begin(115200);
 
   pinMode(TRIG_PIN, OUTPUT);
@@ -66,9 +91,19 @@ void setup() {
 
   dht.begin();
 
-  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  servoPakan.attach(SERVO_PIN);
+  servoPakan.write(0);
 
-  timer.setInterval(2000L, monitoring);
+  Blynk.begin(
+    BLYNK_AUTH_TOKEN,
+    ssid,
+    pass
+  );
+
+  timer.setInterval(
+    2000L,
+    monitoring
+  );
 }
 
 void loop() {
