@@ -1,83 +1,79 @@
 #include <DHT.h>
 
-#define SOIL_PIN A0
-#define DHT_PIN 2
-#define RELAY_PIN 3
-#define BUZZER_PIN 4
-#define LED_MERAH 5
-#define LED_HIJAU 6
-
+// Konfigurasi DHT22
+#define DHTPIN 2
 #define DHTTYPE DHT22
 
-DHT dht(DHT_PIN, DHTTYPE);
+DHT dht(DHTPIN, DHTTYPE);
 
-int batasKering = 600;
-float batasPanas = 31.0;
+// Pin Sensor Soil
+const int soilPin = A0;
+
+// Aktuator
+const int ledPin = 8;
+const int buzzerPin = 9;
+
+// Nilai ambang
+float suhuThreshold = 20.0;      // °C
+int kelembapanThreshold = 50;    // %
 
 void setup() {
-
   Serial.begin(9600);
 
   dht.begin();
 
-  pinMode(RELAY_PIN, OUTPUT);
-  pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(LED_MERAH, OUTPUT);
-  pinMode(LED_HIJAU, OUTPUT);
+  pinMode(ledPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
 
-  digitalWrite(RELAY_PIN, HIGH);
-  digitalWrite(BUZZER_PIN, HIGH);
+  digitalWrite(ledPin, LOW);
 }
 
 void loop() {
 
-  int nilaiTanah = analogRead(SOIL_PIN);
-
+  // Membaca suhu
   float suhu = dht.readTemperature();
 
+  // Membaca soil moisture
+  int soilValue = analogRead(soilPin);
+
+  // Konversi ke persen
+  int soilPercent = map(soilValue, 1023, 0, 0, 100);
+
   if (isnan(suhu)) {
-    Serial.println("Sensor DHT22 Error");
+    Serial.println("Gagal membaca DHT22!");
+    delay(2000);
     return;
   }
 
-  bool kondisiKering = (nilaiTanah > batasKering);
-  bool kondisiPanas = (suhu >= batasPanas);
-
-  if (kondisiKering) {
-
-    digitalWrite(RELAY_PIN, LOW);
-    digitalWrite(LED_MERAH, HIGH);
-    digitalWrite(LED_HIJAU, LOW);
-
-  } else {
-
-    digitalWrite(RELAY_PIN, HIGH);
-    digitalWrite(LED_MERAH, LOW);
-    digitalWrite(LED_HIJAU, HIGH);
-  }
-
-  if (kondisiKering || kondisiPanas) {
-
-    digitalWrite(BUZZER_PIN, LOW);
-
-  } else {
-
-    digitalWrite(BUZZER_PIN, HIGH);
-  }
-
-  Serial.print("Kelembaban Tanah : ");
-  Serial.println(nilaiTanah);
-
-  Serial.print("Suhu : ");
+  Serial.print("Suhu: ");
   Serial.print(suhu);
-  Serial.println(" C");
+  Serial.println(" °C");
 
-  if (kondisiKering)
-    Serial.println("Status : TANAH KERING - POMPA ON");
-  else
-    Serial.println("Status : TANAH LEMBAB - POMPA OFF");
+  Serial.print("Kelembapan Tanah: ");
+  Serial.print(soilPercent);
+  Serial.println(" %");
 
-  Serial.println("------------------------");
+  // Jika kedua sensor di atas threshold
+  if (suhu > suhuThreshold && soilPercent > kelembapanThreshold) {
 
-  delay(1000);
+    digitalWrite(ledPin, HIGH);
+
+    // Nada buzzer 1000 Hz
+    tone(buzzerPin, 1000);
+
+    Serial.println("PERINGATAN -> LED & BUZZER MENYALA");
+  }
+  else {
+
+    digitalWrite(ledPin, LOW);
+
+    // Matikan buzzer
+    noTone(buzzerPin);
+
+    Serial.println("NORMAL -> LED & BUZZER MATI");
+  }
+
+  Serial.println("---------------------");
+
+  delay(2000);
 }
